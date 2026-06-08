@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config>
+    <ip>127.0.0.1</ip>
+    <api_port>11111</api_port>
+    <login_account>YOUR_FUTU_ACCOUNT</login_account>
+    <login_pwd_md5>YOUR_MD5_PASSWORD</login_pwd_md5>
+    <lang>chs</lang>
+    <log_level>info</log_level>
+    <telnet_ip>127.0.0.1</telnet_ip>
+    <telnet_port>22222</telnet_port>
+</config>

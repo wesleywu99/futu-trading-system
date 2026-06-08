@@ -1,0 +1,16 @@
+[Unit]
+Description=Futu Trading System
+After=futu-opend.service
+Requires=futu-opend.service
+
+[Service]
+Type=simple
+User=DEPLOY_USER
+WorkingDirectory=/home/DEPLOY_USER/futu-trading-system
+ExecStart=/home/DEPLOY_USER/futu-trading-system/venv/bin/python -m src.main
+Restart=always
+RestartSec=30
+Environment=FUTU_CONFIG_PATH=config/config.yaml
+
+[Install]
+WantedBy=multi-user.target

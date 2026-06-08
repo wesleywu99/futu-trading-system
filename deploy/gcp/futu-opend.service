@@ -1,0 +1,14 @@
+[Unit]
+Description=Futu OpenD Gateway
+After=network.target
+
+[Service]
+Type=simple
+User=DEPLOY_USER
+WorkingDirectory=/home/DEPLOY_USER/futu-opend
+ExecStart=/home/DEPLOY_USER/futu-opend/FutuOpenD
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

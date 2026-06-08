@@ -1,0 +1,172 @@
+# ============================================================
+# Futu Trading System Configuration
+# Copy this file to config.yaml and modify as needed
+# ============================================================
+
+# OpenD connection settings
+opend:
+  host: "127.0.0.1"
+  port: 11111
+  reconnect:
+    max_retries: 5
+    retry_interval_sec: 10
+
+# Trading environment: "SIMULATE" or "REAL"
+# IMPORTANT: Always start with SIMULATE!
+trading:
+  env: "SIMULATE"
+  markets:
+    US:
+      enabled: true
+      currency: "USD"
+    HK:
+      enabled: false
+      currency: "HKD"
+
+# Watchlist: stocks to monitor (backtest-optimized selection)
+watchlist:
+  - code: "US.GOOGL"
+    name: "Google/Alphabet"
+    enabled: true
+    lot_size: 1
+  - code: "US.NVDA"
+    name: "NVIDIA"
+    enabled: true
+    lot_size: 1
+  - code: "US.TSLA"
+    name: "Tesla"
+    enabled: true
+    lot_size: 1
+
+# Strategy-stock assignment based on backtest optimization
+# Maps stock code to its best-performing strategy name
+strategy_stock_mapping:
+  US.GOOGL: "adx_macd"
+  US.NVDA: "macd_trend"
+  US.TSLA: "macd_trend"
+
+# Data subscription types
+data:
+  subscription_types:
+    - QUOTE
+    - TICKER
+    - K_1M
+    - K_DAY
+    - RT_DATA
+  kline_history_bars: 500
+  daily_kline_history_bars: 300
+
+# Strategy engine settings
+strategy:
+  check_interval_sec: 5
+
+# Crash Protection: auto-sell when price drops sharply
+crash_protection:
+  enabled: true
+  drop_threshold_pct: 5.0
+  time_window_min: 15
+  cooldown_sec: 300
+
+# Spike Detection: buy on volume + price breakout
+spike_detection:
+  enabled: true
+  volume_multiplier: 3.0
+  volume_avg_period_min: 30
+  price_breakout_pct: 2.0
+  price_time_window_min: 10
+  max_buy_qty: 100
+  max_daily_trades: 5
+  cooldown_sec: 600
+
+# Moving Average Crossover: good entry point
+ma_crossover:
+  enabled: true
+  short_period: 5
+  long_period: 20
+  rsi_filter:
+    enabled: true
+    period: 14
+    oversold: 30
+
+# MACD Trend Following: medium-term momentum capture
+macd_trend:
+  enabled: true
+  fast_period: 12
+  slow_period: 26
+  signal_period: 9
+  trend_ema_period: 30
+  cooldown_sec: 300
+
+# Bollinger Bands + RSI: swing breakout (mean-reversion)
+bbands_rsi:
+  enabled: true
+  bb_period: 20
+  bb_std_mult: 2.0
+  rsi_period: 14
+  rsi_oversold: 30
+  rsi_overbought: 70
+  cooldown_sec: 300
+
+# KDJ + MACD Combo: MACD entry, KDJ exit
+kdj_macd:
+  enabled: true
+  kdj_period: 9
+  kdj_smooth: 3
+  macd_fast: 12
+  macd_slow: 26
+  macd_signal: 9
+  j_sell_threshold: 0
+  cooldown_sec: 300
+
+# ADX + MACD Trend: early trend capture with EMA alignment
+adx_macd:
+  enabled: true
+  ema_short: 13
+  ema_mid: 55
+  ema_long: 89
+  adx_period: 14
+  adx_threshold: 30
+  adx_rising_bars: 2
+  macd_fast: 12
+  macd_slow: 26
+  macd_signal: 9
+  cooldown_sec: 300
+
+# Risk management
+risk:
+  max_positions: 5
+  max_position_value_pct: 20.0
+  stop_loss:
+    default_pct: 8.0
+    trailing:
+      enabled: true
+      activation_pct: 3.0
+      trailing_pct: 5.0
+  take_profit:
+    default_pct: 15.0
+  daily_loss_limit_pct: 5.0
+
+# Order execution
+execution:
+  max_slippage_pct: 0.5
+  order_retry:
+    max_retries: 2
+    retry_delay_sec: 3
+
+# Notification settings
+notification:
+  enabled: true
+  console:
+    enabled: true
+  file:
+    enabled: true
+    path: "logs/trading.log"
+    max_size_mb: 50
+    backup_count: 5
+  telegram:
+    enabled: false
+    bot_token: ""
+    chat_id: ""
+
+logging:
+  level: "INFO"

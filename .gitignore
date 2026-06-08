@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+logs/
+*.egg-info/
+.venv/
+venv/
+.env
+config/config.yaml
+nul
+*.tar.gz
