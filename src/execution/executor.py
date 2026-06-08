@@ -106,7 +106,7 @@ class OrderExecutor:
             if ret == RET_OK:
                 order_id = data["order_id"][0]
                 logger.info(
-                    f"Order placed: {trd_side.value} {qty} {signal.code} "
+                    f"Order placed: {trd_side} {qty} {signal.code} "
                     f"@ {current_price}, id={order_id}"
                 )
                 with self._history_lock:
