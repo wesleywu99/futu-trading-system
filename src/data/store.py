@@ -68,7 +68,14 @@ class MarketDataStore:
                 code = row["code"]
                 if code not in self.daily_klines:
                     self.daily_klines[code] = deque(maxlen=self.max_daily_kline_bars)
-                self.daily_klines[code].append(row.to_dict())
+                new_bar = row.to_dict()
+                new_date = str(new_bar.get("time_key", ""))[:10]
+                bars = self.daily_klines[code]
+                # Replace last bar if same date (intraday update), else append
+                if bars and new_date and str(bars[-1].get("time_key", ""))[:10] == new_date:
+                    bars[-1] = new_bar
+                else:
+                    bars.append(new_bar)
 
     def get_daily_klines(self, code, num_bars=None):
         with self._lock:

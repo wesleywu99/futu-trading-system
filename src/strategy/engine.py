@@ -5,6 +5,7 @@ import time
 import logging
 
 from src.core.events import SignalType
+from src.utils.market_hours import is_us_market_open, get_us_market_status
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +76,20 @@ class StrategyEngine:
             f"Signal: {signal_type_str} {signal.code} "
             f"from {signal.strategy_name} - {signal.reason}"
         )
+
+        # Market hours check — skip execution outside regular hours
+        # Exception: crash_protection SELL signals (stop-loss) are always executed
+        is_crash_sell = (
+            signal.strategy_name == "crash_protection"
+            and signal_type_str == "SELL"
+        )
+        skip_after_hours = self.config.get("execution.skip_after_hours", True)
+        if skip_after_hours and not is_crash_sell and not is_us_market_open():
+            logger.info(
+                f"Signal skipped (market closed: {get_us_market_status()}): "
+                f"{signal_type_str} {signal.code}"
+            )
+            return
 
         # Risk validation
         if self.risk_manager:

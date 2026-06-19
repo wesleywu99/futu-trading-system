@@ -115,6 +115,14 @@ class OrderExecutor:
                         "signal": signal,
                         "timestamp": signal.timestamp,
                     })
+                # Wait for fill confirmation (non-blocking: runs in background thread)
+                fill_timeout = self.config.get("execution.fill_timeout_sec", 60)
+                thread = threading.Thread(
+                    target=self._wait_for_fill,
+                    args=(trade_ctx, order_id, signal.code, trd_env, fill_timeout),
+                    daemon=True,
+                )
+                thread.start()
                 return
             else:
                 logger.error(
@@ -137,6 +145,66 @@ class OrderExecutor:
             logger.info(f"Order cancelled: {order_id}")
         else:
             logger.error(f"Cancel failed: {data}")
+
+    def _wait_for_fill(self, trade_ctx, order_id, code, trd_env, timeout):
+        """Poll order status until filled, cancelled, or timeout.
+
+        On timeout, automatically cancels the pending order.
+        """
+        poll_interval = 5
+        elapsed = 0
+        while elapsed < timeout:
+            time.sleep(poll_interval)
+            elapsed += poll_interval
+
+            # Try today's orders first
+            ret, data = trade_ctx.order_list_query(
+                local_order_id=order_id, trd_env=trd_env
+            )
+            if ret == RET_OK and len(data) > 0:
+                status = str(data.iloc[0].get("order_status", ""))
+                dealt = float(data.iloc[0].get("dealt_qty", 0))
+                qty = float(data.iloc[0].get("qty", 0))
+                if "FILLED_ALL" in status:
+                    logger.info(
+                        f"Order filled: id={order_id}, {code}, "
+                        f"dealt={dealt}/{qty}"
+                    )
+                    return
+                if "CANCELLED" in status or "FAILED" in status or "DELETED" in status:
+                    logger.warning(
+                        f"Order {status}: id={order_id}, {code}, dealt={dealt}/{qty}"
+                    )
+                    return
+                # Still pending — continue polling
+                logger.debug(
+                    f"Order pending: id={order_id}, status={status}, "
+                    f"dealt={dealt}/{qty}, waiting {elapsed}s/{timeout}s"
+                )
+            else:
+                # Order may have moved to history — check there
+                ret2, data2 = trade_ctx.history_order_list_query(trd_env=trd_env)
+                if ret2 == RET_OK and len(data2) > 0:
+                    match = data2[data2["order_id"] == order_id]
+                    if len(match) > 0:
+                        status = str(match.iloc[0].get("order_status", ""))
+                        dealt = float(match.iloc[0].get("dealt_qty", 0))
+                        if "FILLED_ALL" in status:
+                            logger.info(
+                                f"Order filled: id={order_id}, {code}, dealt={dealt}"
+                            )
+                            return
+                        if "CANCELLED" in status or "FAILED" in status:
+                            logger.warning(
+                                f"Order {status}: id={order_id}, {code}, dealt={dealt}"
+                            )
+                            return
+
+        # Timeout — cancel the order
+        logger.warning(
+            f"Order fill timeout ({timeout}s): id={order_id}, {code} — cancelling"
+        )
+        self.cancel_order(order_id, code)
 
     def _get_trade_context(self, code):
         if code.startswith("HK."):

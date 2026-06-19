@@ -149,6 +149,8 @@ risk:
 # Order execution
 execution:
   max_slippage_pct: 0.5
+  fill_timeout_sec: 60        # Wait for order fill before auto-cancel (seconds)
+  skip_after_hours: true      # Skip order execution outside regular trading hours
   order_retry:
     max_retries: 2
     retry_delay_sec: 3

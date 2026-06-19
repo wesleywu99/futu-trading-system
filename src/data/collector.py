@@ -120,6 +120,41 @@ class MarketDataCollector:
             except Exception as e:
                 logger.error(f"Failed to fetch daily history for {code}: {e}")
 
+    def refresh_daily_klines(self):
+        """Refresh daily K-lines from API. Called periodically to correct any drift."""
+        if not self.quote_ctx:
+            return
+        codes = [
+            s["code"] for s in self.config.get("watchlist", []) if s.get("enabled", True)
+        ]
+        daily_bars = self.config.get("data.daily_kline_history_bars", 300)
+        daily_days_back = max(int(daily_bars * 1.5), 450)
+        daily_start = (datetime.now() - timedelta(days=daily_days_back)).strftime("%Y-%m-%d")
+
+        for code in codes:
+            try:
+                ret, klines, _ = self.quote_ctx.request_history_kline(
+                    code=code,
+                    start=daily_start,
+                    end=None,
+                    ktype=KLType.K_DAY,
+                    autype=AuType.QFQ,
+                    fields=[KL_FIELD.ALL],
+                    max_count=daily_bars,
+                )
+                if ret == RET_OK and klines is not None and len(klines) > 0:
+                    with self.store._lock:
+                        from collections import deque
+                        self.store.daily_klines[code] = deque(
+                            list(klines.to_dict("records")),
+                            maxlen=self.store.max_daily_kline_bars,
+                        )
+                    logger.info(f"Refreshed {len(klines)} daily K-lines for {code}")
+                else:
+                    logger.warning(f"Daily refresh failed for {code}")
+            except Exception as e:
+                logger.error(f"Failed to refresh daily history for {code}: {e}")
+
     def stop(self):
         if self.quote_ctx:
             self.quote_ctx.close()

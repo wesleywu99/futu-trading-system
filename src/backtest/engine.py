@@ -80,6 +80,8 @@ class BacktestStore(MarketDataStore):
         self._current_bar[code] = 0
         # Pre-populate klines as empty
         self.klines[code] = []
+        # In backtesting, klines ARE the daily bars
+        self.daily_klines[code] = []
 
     def advance_to(self, code, bar_index):
         """Reveal data up to and including bar_index."""
@@ -87,29 +89,33 @@ class BacktestStore(MarketDataStore):
         if not all_data:
             return
         bar_index = min(bar_index, len(all_data) - 1)
-        # Rebuild klines deque up to bar_index
-        self.klines[code] = []
-        for i in range(bar_index + 1):
-            self.klines[code].append(all_data[i])
+        # Use slice view instead of copying — much faster for large datasets
+        self._revealed_slice = all_data[: bar_index + 1]
+        self.klines[code] = self._revealed_slice
+        self.daily_klines[code] = self._revealed_slice
         self._current_bar[code] = bar_index
 
     def get_klines(self, code, num_bars=None):
         """Return klines revealed so far."""
-        data = list(self.klines.get(code, []))
+        data = self.klines.get(code, [])
+        if isinstance(data, list):
+            result = data
+        else:
+            result = list(data)
         if num_bars:
-            return data[-num_bars:]
-        return data
+            return result[-num_bars:]
+        return result
 
     def get_latest_price(self, code):
         """Get latest close price from revealed data."""
-        bars = list(self.klines.get(code, []))
+        bars = self.klines.get(code, [])
         if bars:
             return bars[-1].get("close", 0)
         return 0.0
 
     def get_latest_quote(self, code):
         """Return the latest revealed bar as a quote dict."""
-        bars = list(self.klines.get(code, []))
+        bars = self.klines.get(code, [])
         if bars:
             bar = bars[-1]
             return {
@@ -126,13 +132,13 @@ class BacktestStore(MarketDataStore):
 
         In backtesting with daily bars, return last N close prices.
         """
-        bars = list(self.klines.get(code, []))
+        bars = self.klines.get(code, [])
         count = min(minutes, len(bars))
         return [b.get("close", 0) for b in bars[-count:] if b.get("close", 0) > 0]
 
     def get_volume_average(self, code, period_minutes):
         """Return average volume of last N bars (excluding latest)."""
-        bars = list(self.klines.get(code, []))
+        bars = self.klines.get(code, [])
         if len(bars) < 2:
             return 0.0
         historical = bars[:-1][-period_minutes:]
@@ -141,10 +147,17 @@ class BacktestStore(MarketDataStore):
         return sum(b.get("volume", 0) for b in historical) / len(historical)
 
     def get_latest_volume(self, code):
-        bars = list(self.klines.get(code, []))
+        bars = self.klines.get(code, [])
         if bars:
             return bars[-1].get("volume", 0)
         return 0
+
+    def get_daily_klines(self, code, num_bars=None):
+        """Override parent to skip lock overhead — same data as klines in backtest."""
+        bars = self.daily_klines.get(code, [])
+        if num_bars:
+            return bars[-num_bars:]
+        return list(bars) if not isinstance(bars, list) else bars
 
 
 class BacktestEngine:

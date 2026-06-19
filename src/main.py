@@ -145,6 +145,19 @@ def main():
         risk_thread = threading.Thread(target=risk_check_loop, daemon=True)
         risk_thread.start()
 
+        # Daily K-line refresh loop: corrects any drift in daily data
+        def daily_refresh_loop():
+            while True:
+                try:
+                    collector.refresh_daily_klines()
+                except Exception as e:
+                    logger.error(f"Daily refresh error: {e}", exc_info=True)
+                # Refresh every 15 minutes
+                time.sleep(900)
+
+        refresh_thread = threading.Thread(target=daily_refresh_loop, daemon=True)
+        refresh_thread.start()
+
         watchlist = [
             s["code"] for s in config.get("watchlist", []) if s.get("enabled", True)
         ]
