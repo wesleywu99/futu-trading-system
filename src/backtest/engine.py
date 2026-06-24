@@ -161,16 +161,27 @@ class BacktestStore(MarketDataStore):
 
 
 class BacktestEngine:
-    """Run strategy backtests on historical data."""
+    """Run strategy backtests on historical data.
 
-    def __init__(self, strategy_cls, strategy_config, code,
-                 initial_cash=100000, commission=0.001, position_pct=0.2):
+    Two ways to supply the strategy:
+
+    * ``strategy_cls`` + ``strategy_config`` — the engine instantiates the
+      class itself (original behavior, used for plain BaseStrategy classes).
+    * ``strategy_obj`` — a pre-instantiated strategy object (used for
+      CombinedStrategy, which needs sub-strategy instances at construction
+      time). When provided, ``strategy_cls``/``strategy_config`` are ignored.
+    """
+
+    def __init__(self, strategy_cls=None, strategy_config=None, code="",
+                 initial_cash=100000, commission=0.001, position_pct=0.2,
+                 strategy_obj=None):
         self.strategy_cls = strategy_cls
-        self.strategy_config = strategy_config
+        self.strategy_config = strategy_config or {}
         self.code = code
         self.initial_cash = initial_cash
         self.commission = commission
         self.position_pct = position_pct
+        self.strategy_obj = strategy_obj
 
     def run(self, klines):
         """Run backtest and return BacktestResult.
@@ -181,14 +192,24 @@ class BacktestEngine:
         store = BacktestStore()
         store.load_data(self.code, klines)
 
-        # Ensure cooldown is 0 for backtesting
-        config = dict(self.strategy_config)
-        config["cooldown_sec"] = 0
-        config["enabled"] = True
+        if self.strategy_obj is not None:
+            # Reuse the pre-instantiated strategy but point it at this run's store
+            strategy = self.strategy_obj
+            strategy.store = store
+            strategy.enabled = True
+            if hasattr(strategy, "reset_position_state"):
+                strategy.reset_position_state()
+            strategy_name = strategy.name
+        else:
+            # Ensure cooldown is 0 for backtesting
+            config = dict(self.strategy_config)
+            config["cooldown_sec"] = 0
+            config["enabled"] = True
 
-        strategy = self.strategy_cls(
-            f"bt_{self.strategy_cls.__name__}", config, store
-        )
+            strategy = self.strategy_cls(
+                f"bt_{self.strategy_cls.__name__}", config, store
+            )
+            strategy_name = self.strategy_cls.__name__
 
         cash = self.initial_cash
         position = 0  # number of shares held
@@ -212,6 +233,8 @@ class BacktestEngine:
 
             # Reset cooldown for next bar
             strategy.last_trigger_time = {}
+            if hasattr(strategy, "_reset_sub_cooldowns"):
+                strategy._reset_sub_cooldowns()
 
             # Process signals
             for signal in signals:
@@ -312,7 +335,7 @@ class BacktestEngine:
             avg_trade_ret = 0
 
         return BacktestResult(
-            strategy_name=self.strategy_cls.__name__,
+            strategy_name=strategy_name,
             code=self.code,
             initial_cash=self.initial_cash,
             final_value=final_value,

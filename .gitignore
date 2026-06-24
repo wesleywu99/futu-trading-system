@@ -8,3 +8,6 @@ venv/
 config/config.yaml
 nul
 *.tar.gz
+
+# Generated backtest/optimizer outputs (large binary, regenerable)
+optimizer_results.xlsx
